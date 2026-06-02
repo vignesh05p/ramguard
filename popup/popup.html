@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>RAMGuard</title>
+  <style>
+    /* Import Poppins font */
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+    /* CSS Custom Properties / Theme Tokens */
+    :root {
+      --font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      
+      /* Light Theme (Default) */
+      --bg-base: #f8fafc;
+      --bg-surface: #ffffff;
+      --border-color: rgba(0, 0, 0, 0.06);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      
+      --color-primary: #2563eb;
+      --color-primary-hover: #1d4ed8;
+      --color-primary-glow: rgba(37, 99, 235, 0.1);
+      
+      --color-accent: #15803d;
+      --color-accent-glow: rgba(21, 128, 61, 0.08);
+      
+      --shadow-main: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+      --radius-md: 12px;
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Dark Theme */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-base: #090a0f;
+        --bg-surface: rgba(18, 20, 28, 0.65);
+        --border-color: rgba(255, 255, 255, 0.08);
+        --text-primary: #f3f4f6;
+        --text-secondary: #9ca3af;
+        --text-muted: #6b7280;
+        
+        --color-primary: #3b82f6; /* Neon Blue */
+        --color-primary-hover: #60a5fa;
+        --color-primary-glow: rgba(59, 130, 246, 0.15);
+        
+        --color-accent: #10b981; /* Neon Green */
+        --color-accent-glow: rgba(16, 185, 129, 0.15);
+        
+        --shadow-main: 0 12px 30px rgba(0, 0, 0, 0.4);
+      }
+    }
+
+    /* Manual body class overrides for theme toggling */
+    body.light {
+      --bg-base: #f8fafc;
+      --bg-surface: #ffffff;
+      --border-color: rgba(0, 0, 0, 0.06);
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #94a3b8;
+      --color-primary: #2563eb;
+      --color-primary-hover: #1d4ed8;
+      --color-primary-glow: rgba(37, 99, 235, 0.1);
+      --color-accent: #15803d;
+      --color-accent-glow: rgba(21, 128, 61, 0.08);
+      --shadow-main: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+    }
+
+    body.dark {
+      --bg-base: #090a0f;
+      --bg-surface: rgba(18, 20, 28, 0.65);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --text-muted: #6b7280;
+      --color-primary: #3b82f6;
+      --color-primary-hover: #60a5fa;
+      --color-primary-glow: rgba(59, 130, 246, 0.15);
+      --color-accent: #10b981;
+      --color-accent-glow: rgba(16, 185, 129, 0.15);
+      --shadow-main: 0 12px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    /* Reset */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      width: 400px;
+      height: 550px;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 13px;
+      line-height: 1.5;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      padding: 16px 20px;
+      transition: background-color 0.2s ease;
+    }
+
+    /* Subtle grid pattern for dark mode */
+    body.dark::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+      background-size: 20px 20px;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    /* Header styling */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .logo-img {
+      width: 18px;
+      height: 18px;
+      object-fit: contain;
+    }
+
+    .logo-text {
+      font-size: 15px;
+      font-weight: 600;
+      letter-spacing: -0.3px;
+    }
+
+    .theme-toggle-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: var(--transition);
+    }
+
+    .theme-toggle-btn:hover {
+      background-color: var(--border-color);
+      color: var(--text-primary);
+    }
+
+    .theme-icon {
+      width: 14px;
+      height: 14px;
+    }
+
+    /* Navigation Segmented Tab Control */
+    .nav-tabs {
+      display: flex;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      padding: 3px;
+      border-radius: 10px;
+      margin-bottom: 16px;
+      gap: 2px;
+      box-shadow: var(--shadow-main);
+    }
+
+    .nav-tab {
+      flex: 1;
+      padding: 6px 0;
+      font-size: 11px;
+      font-weight: 500;
+      font-family: var(--font-family);
+      text-align: center;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      border-radius: 7px;
+      transition: var(--transition);
+    }
+
+    .nav-tab:hover {
+      color: var(--text-primary);
+      background-color: var(--border-color);
+    }
+
+    .nav-tab.active {
+      color: var(--color-primary);
+      background-color: var(--border-color);
+      font-weight: 600;
+    }
+
+    /* Content Area */
+    .panes-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .tab-pane {
+      display: none;
+      height: 100%;
+      flex-direction: column;
+      animation: tabFadeIn 0.15s ease-out;
+    }
+
+    .tab-pane.active {
+      display: flex;
+    }
+
+    @keyframes tabFadeIn {
+      from { opacity: 0; transform: translateY(2px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Status Cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .stat-card {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 8px;
+      text-align: center;
+      box-shadow: var(--shadow-main);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      transition: var(--transition);
+    }
+
+    .stat-card:hover {
+      border-color: rgba(59, 130, 246, 0.2);
+    }
+
+    .stat-val {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      letter-spacing: -0.3px;
+    }
+
+    .stat-lbl {
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .stat-card.accent .stat-val {
+      color: var(--color-accent);
+    }
+
+    /* Action Button */
+    .btn-main {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-family);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+      background-color: var(--color-primary);
+      color: #ffffff;
+      box-shadow: 0 4px 12px var(--color-primary-glow);
+      margin-bottom: 14px;
+    }
+
+    .btn-main:hover {
+      background-color: var(--color-primary-hover);
+      box-shadow: 0 6px 16px var(--color-primary-glow);
+    }
+
+    .btn-main:active {
+      transform: scale(0.99);
+    }
+
+    .btn-main[disabled] {
+      opacity: 0.6;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Settings Group */
+    .settings-group {
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      box-shadow: var(--shadow-main);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .settings-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .settings-lbl {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .settings-badge {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--color-primary);
+      background-color: var(--color-primary-glow);
+      padding: 2px 8px;
+      border-radius: 6px;
+    }
+
+    .slider-input {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border-color);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--color-primary);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    /* Lists and Scrollable Containers */
+    .list-container {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .list-header {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .scroll-container {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      padding-right: 2px;
+    }
+
+    .list-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      background-color: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      gap: 8px;
+      transition: var(--transition);
+    }
+
+    .list-item:hover {
+      border-color: rgba(59, 130, 246, 0.15);
+      background-color: rgba(255, 255, 255, 0.01);
+    }
+
+    .tab-info-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex: 1;
+      cursor: pointer;
+    }
+
+    .tab-favicon {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      border-radius: 3px;
+    }
+
+    .tab-text-details {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .tab-title-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tab-meta-text {
+      font-size: 10px;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .wake-btn {
+      padding: 4px 10px;
+      font-size: 11px;
+      font-weight: 500;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: var(--transition);
+      font-family: var(--font-family);
+    }
+
+    .wake-btn:hover {
+      background-color: var(--color-primary);
+      color: #ffffff;
+      border-color: var(--color-primary);
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 30px 16px;
+      color: var(--text-muted);
+      flex: 1;
+      gap: 4px;
+    }
+
+    .empty-title {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 2px;
+    }
+
+    /* Toast style */
+    .toast {
+      position: absolute;
+      bottom: 85px;
+      left: 50%;
+      transform: translateX(-50%) translateY(4px);
+      background-color: var(--bg-surface);
+      color: var(--text-primary);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      border: 1px solid var(--border-color);
+      z-index: 100;
+      transition: opacity 0.2s, transform 0.2s;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast-success {
+      border-color: var(--color-accent);
+    }
+
+    .toast-error {
+      border-color: var(--color-danger);
+    }
+
+    /* Footer styling overrides to match theme border dynamically */
+    .footer-wrap {
+      border-top: 1px solid var(--border-color) !important;
+    }
+    .footer-wrap a {
+      color: var(--color-primary);
+      text-decoration: none;
+      transition: var(--transition);
+    }
+    .footer-wrap a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <img src="/icons/icon-48-removebg-preview.png" class="logo-img" alt="Shield Logo">
+      <span class="logo-text">RAMGuard</span>
+    </div>
+    <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Theme">
+      <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+      </svg>
+    </button>
+  </header>
+
+  <!-- Segmented Tab Navigation Control -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" data-target="pane-status">Status</button>
+    <button class="nav-tab" data-target="pane-sleeping">Sleeping</button>
+    <button class="nav-tab" data-target="pane-history">History</button>
+  </div>
+
+  <!-- Content Panes Container -->
+  <div class="panes-container">
+
+    <!-- STATUS TAB PANE -->
+    <div id="pane-status" class="tab-pane active">
+      <!-- Status Cards -->
+      <div class="stats-grid">
+        <div class="stat-card" title="Open tabs currently active">
+          <div class="stat-val" id="activeTabsCount">0</div>
+          <div class="stat-lbl">Active Tabs</div>
+        </div>
+        <div class="stat-card" title="Tabs hibernated to save memory">
+          <div class="stat-val" id="sleepingTabsCount">0</div>
+          <div class="stat-lbl">Sleeping Tabs</div>
+        </div>
+        <div class="stat-card accent" id="ramSavedCard" title="Estimated RAM saved (80MB per sleeping tab)">
+          <div class="stat-val" id="totalSavedRAM">0 MB</div>
+          <div class="stat-lbl">RAM Saved</div>
+        </div>
+      </div>
+
+      <!-- Action Button -->
+      <button id="hibernateNowBtn" class="btn-main" title="Instantly hibernate background tabs">
+        Hibernate Inactive Now
+      </button>
+
+      <!-- Settings Section -->
+      <div class="settings-group">
+        <div class="settings-header">
+          <span class="settings-lbl">Auto-Hibernate Idle Time</span>
+          <span class="settings-badge" id="inactiveValue">1 min</span>
+        </div>
+        <input type="range" id="inactiveSlider" class="slider-input" min="1" max="30" step="1" value="1" title="Adjust inactivity time slider (1 to 30 minutes)">
+      </div>
+    </div>
+
+    <!-- SLEEPING TABS PANE -->
+    <div id="pane-sleeping" class="tab-pane">
+      <div class="list-container">
+        <div class="list-header">
+          <span>Sleeping Tabs</span>
+          <button id="wakeAllBtn" class="wake-btn" style="padding: 2px 8px; font-size: 10px; border-radius: 4px;" title="Wake up all sleeping tabs">
+            Wake All
+          </button>
+        </div>
+        <div id="sleepingTabsList" class="scroll-container">
+          <!-- Dynamic sleeping tabs -->
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY PANE -->
+    <div id="pane-history" class="tab-pane">
+      <div class="list-container">
+        <div class="list-header">
+          <span>Recent Hibernations</span>
+          <button id="clearHistoryBtn" class="wake-btn" style="padding: 2px 8px; font-size: 10px; border-radius: 4px;" title="Clear hibernation log">
+            Clear Log
+          </button>
+        </div>
+        <div id="historyTabsList" class="scroll-container">
+          <!-- Dynamic history log -->
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer-wrap" style="margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.1); font-size:12px; text-align:center; opacity:0.7;">
+    Made by Vignesh Prabhu<br>
+    <a href="https://www.linkedin.com/in/vigneshprabhu11/" target="_blank">LinkedIn</a> • 
+    <a href="https://github.com/vignesh05p" target="_blank">GitHub</a>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">
+    <span id="toastText">Action completed</span>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
