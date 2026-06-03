@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "RAMGuard",
-  "version": "1.3.0",
-  "description": "Smart tab hibernator. Auto-sleeps old tabs after 1 minute. Keeps Chrome fast when you have 20+ tabs. 100% free.",
+  "version": "1.6.3",
+  "description": "RAMGuard automatically hibernates inactive tabs after 1 minute — keeps Chrome, Brave, Edge, Opera, Vivaldi fast. 100% free.",
   "icons": {
-    "16": "icons/icon-16-removebg-preview.png",
-    "48": "icons/icon-48-removebg-preview.png",
-    "128": "icons/icon-128-removebg-preview.png"
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
   },
   "background": {
     "service_worker": "background.js"
@@ -18,7 +18,8 @@
   "permissions": [
     "tabs",
     "storage",
-    "alarms"
+    "alarms",
+    "idle"
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"

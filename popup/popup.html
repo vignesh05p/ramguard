@@ -4,83 +4,102 @@
   <meta charset="utf-8">
   <title>RAMGuard</title>
   <style>
-    /* Import Poppins font */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-
-    /* CSS Custom Properties / Theme Tokens */
+    /* CSS Custom Properties for Material Design 3 Theme */
     :root {
-      --font-family: 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       
-      /* Light Theme (Default) */
-      --bg-base: #f8fafc;
+      /* Light Theme (Google Material 3) */
+      --bg-base: #f8f9fa;
       --bg-surface: #ffffff;
-      --border-color: rgba(0, 0, 0, 0.06);
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --text-muted: #94a3b8;
+      --bg-card: #ffffff;
+      --border-color: #e0e0e0;
+      --text-primary: #202124;
+      --text-secondary: #5f6368;
+      --text-muted: #70757a;
       
-      --color-primary: #2563eb;
-      --color-primary-hover: #1d4ed8;
-      --color-primary-glow: rgba(37, 99, 235, 0.1);
+      --color-primary: #1a73e8;
+      --color-primary-hover: #1557b0;
+      --color-primary-glow: #e8f0fe;
+      --btn-primary-text: #ffffff;
       
-      --color-accent: #15803d;
-      --color-accent-glow: rgba(21, 128, 61, 0.08);
+      --color-accent: #1e8e3e;
+      --color-accent-glow: #e6f4ea;
       
-      --shadow-main: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
-      --radius-md: 12px;
-      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      --shadow-main: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+      --radius-sm: 4px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --transition: all 0.15s ease-in-out;
+      
+      /* Scrollbar Custom Colors */
+      --scrollbar-thumb: rgba(26, 115, 232, 0.35);
+      --scrollbar-thumb-hover: rgba(26, 115, 232, 0.6);
     }
 
-    /* Dark Theme */
+    /* Dark Theme Override */
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg-base: #090a0f;
-        --bg-surface: rgba(18, 20, 28, 0.65);
-        --border-color: rgba(255, 255, 255, 0.08);
-        --text-primary: #f3f4f6;
-        --text-secondary: #9ca3af;
-        --text-muted: #6b7280;
+        --bg-base: #202124;
+        --bg-surface: #292a2d;
+        --bg-card: #292a2d;
+        --border-color: #3c4043;
+        --text-primary: #e8eaed;
+        --text-secondary: #9aa0a6;
+        --text-muted: #70757a;
         
-        --color-primary: #3b82f6; /* Neon Blue */
-        --color-primary-hover: #60a5fa;
-        --color-primary-glow: rgba(59, 130, 246, 0.15);
+        --color-primary: #8ab4f8;
+        --color-primary-hover: #aecbfa;
+        --color-primary-glow: rgba(138, 180, 248, 0.15);
+        --btn-primary-text: #202124;
         
-        --color-accent: #10b981; /* Neon Green */
-        --color-accent-glow: rgba(16, 185, 129, 0.15);
+        --color-accent: #81c995;
+        --color-accent-glow: rgba(129, 201, 149, 0.15);
         
-        --shadow-main: 0 12px 30px rgba(0, 0, 0, 0.4);
+        --shadow-main: 0 1px 3px 0 rgba(0,0,0,0.3), 0 1px 2px 0 rgba(0,0,0,0.2);
+        
+        /* Scrollbar Custom Colors */
+        --scrollbar-thumb: rgba(248, 250, 252, 0.2);
+        --scrollbar-thumb-hover: rgba(248, 250, 252, 0.35);
       }
     }
 
-    /* Manual body class overrides for theme toggling */
+    /* Manual body overrides for manual toggle button support */
     body.light {
-      --bg-base: #f8fafc;
+      --bg-base: #f8f9fa;
       --bg-surface: #ffffff;
-      --border-color: rgba(0, 0, 0, 0.06);
-      --text-primary: #0f172a;
-      --text-secondary: #475569;
-      --text-muted: #94a3b8;
-      --color-primary: #2563eb;
-      --color-primary-hover: #1d4ed8;
-      --color-primary-glow: rgba(37, 99, 235, 0.1);
-      --color-accent: #15803d;
-      --color-accent-glow: rgba(21, 128, 61, 0.08);
-      --shadow-main: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.03);
+      --bg-card: #ffffff;
+      --border-color: #dadce0;
+      --text-primary: #202124;
+      --text-secondary: #5f6368;
+      --text-muted: #70757a;
+      --color-primary: #1a73e8;
+      --color-primary-hover: #1557b0;
+      --color-primary-glow: #e8f0fe;
+      --btn-primary-text: #ffffff;
+      --color-accent: #1e8e3e;
+      --color-accent-glow: #e6f4ea;
+      --shadow-main: 0 1px 2px 0 rgba(60,64,67,0.3), 0 1px 3px 1px rgba(60,64,67,0.15);
+      --scrollbar-thumb: rgba(26, 115, 232, 0.35);
+      --scrollbar-thumb-hover: rgba(26, 115, 232, 0.6);
     }
 
     body.dark {
-      --bg-base: #090a0f;
-      --bg-surface: rgba(18, 20, 28, 0.65);
-      --border-color: rgba(255, 255, 255, 0.08);
-      --text-primary: #f3f4f6;
-      --text-secondary: #9ca3af;
-      --text-muted: #6b7280;
-      --color-primary: #3b82f6;
-      --color-primary-hover: #60a5fa;
-      --color-primary-glow: rgba(59, 130, 246, 0.15);
-      --color-accent: #10b981;
-      --color-accent-glow: rgba(16, 185, 129, 0.15);
-      --shadow-main: 0 12px 30px rgba(0, 0, 0, 0.4);
+      --bg-base: #202124;
+      --bg-surface: #292a2d;
+      --bg-card: #292a2d;
+      --border-color: #3c4043;
+      --text-primary: #e8eaed;
+      --text-secondary: #9aa0a6;
+      --text-muted: #70757a;
+      --color-primary: #8ab4f8;
+      --color-primary-hover: #aecbfa;
+      --color-primary-glow: rgba(138, 180, 248, 0.15);
+      --btn-primary-text: #202124;
+      --color-accent: #81c995;
+      --color-accent-glow: rgba(129, 201, 149, 0.15);
+      --shadow-main: 0 1px 3px 0 rgba(0,0,0,0.3), 0 1px 2px 0 rgba(0,0,0,0.2);
+      --scrollbar-thumb: rgba(248, 250, 252, 0.2);
+      --scrollbar-thumb-hover: rgba(248, 250, 252, 0.35);
     }
 
     /* Reset */
@@ -91,8 +110,8 @@
     }
 
     body {
-      width: 400px;
-      height: 550px;
+      width: 420px;
+      height: 565px;
       background-color: var(--bg-base);
       color: var(--text-primary);
       font-family: var(--font-family);
@@ -103,23 +122,7 @@
       flex-direction: column;
       position: relative;
       padding: 16px 20px;
-      transition: background-color 0.2s ease;
-    }
-
-    /* Subtle grid pattern for dark mode */
-    body.dark::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-image: 
-        linear-gradient(rgba(255, 255, 255, 0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
-      background-size: 20px 20px;
-      z-index: -1;
-      pointer-events: none;
+      transition: background-color 0.15s ease;
     }
 
     /* Header styling */
@@ -128,35 +131,37 @@
       align-items: center;
       justify-content: space-between;
       margin-bottom: 12px;
+      flex-shrink: 0;
     }
 
     .brand {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
     }
 
     .logo-img {
-      width: 18px;
-      height: 18px;
+      width: 22px;
+      height: 22px;
       object-fit: contain;
     }
 
     .logo-text {
-      font-size: 15px;
-      font-weight: 600;
-      letter-spacing: -0.3px;
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-primary);
+      letter-spacing: -0.2px;
     }
 
     .theme-toggle-btn {
-      width: 28px;
-      height: 28px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
       display: flex;
       align-items: center;
       justify-content: center;
       background: transparent;
-      border: 1px solid var(--border-color);
+      border: none;
       cursor: pointer;
       color: var(--text-secondary);
       transition: var(--transition);
@@ -168,26 +173,22 @@
     }
 
     .theme-icon {
-      width: 14px;
-      height: 14px;
+      width: 18px;
+      height: 18px;
     }
 
-    /* Navigation Segmented Tab Control */
+    /* Google Flat Navigation Tabs */
     .nav-tabs {
       display: flex;
-      background-color: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      padding: 3px;
-      border-radius: 10px;
-      margin-bottom: 16px;
-      gap: 2px;
-      box-shadow: var(--shadow-main);
+      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 14px;
+      flex-shrink: 0;
     }
 
     .nav-tab {
       flex: 1;
-      padding: 6px 0;
-      font-size: 11px;
+      padding: 12px 0;
+      font-size: 13px;
       font-weight: 500;
       font-family: var(--font-family);
       text-align: center;
@@ -195,19 +196,29 @@
       background: transparent;
       border: none;
       cursor: pointer;
-      border-radius: 7px;
+      position: relative;
       transition: var(--transition);
     }
 
     .nav-tab:hover {
       color: var(--text-primary);
-      background-color: var(--border-color);
     }
 
     .nav-tab.active {
       color: var(--color-primary);
-      background-color: var(--border-color);
       font-weight: 600;
+    }
+
+    .nav-tab.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 20%;
+      right: 20%;
+      height: 3px;
+      background-color: var(--color-primary);
+      border-top-left-radius: 3px;
+      border-top-right-radius: 3px;
     }
 
     /* Content Area */
@@ -229,64 +240,77 @@
       display: flex;
     }
 
+    #pane-status {
+      overflow-y: auto;
+      padding-right: 2px;
+    }
+
     @keyframes tabFadeIn {
-      from { opacity: 0; transform: translateY(2px); }
+      from { opacity: 0; transform: translateY(1px); }
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* Status Cards */
+    /* Dashboard Stats Grid */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-bottom: 14px;
+      gap: 10px;
+      margin-bottom: 12px;
     }
 
     .stat-card {
-      background-color: var(--bg-surface);
+      background-color: var(--bg-card);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
       padding: 12px 8px;
       text-align: center;
-      box-shadow: var(--shadow-main);
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 2px;
+      justify-content: center;
+      gap: 4px;
       transition: var(--transition);
     }
 
     .stat-card:hover {
-      border-color: rgba(59, 130, 246, 0.2);
+      border-color: var(--color-primary);
     }
 
     .stat-val {
-      font-size: 18px;
-      font-weight: 700;
+      font-size: 20px;
+      font-weight: 500;
       color: var(--text-primary);
-      letter-spacing: -0.3px;
+      line-height: 1.1;
+      letter-spacing: -0.4px;
     }
 
     .stat-lbl {
-      font-size: 9px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 500;
       color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
     }
 
     .stat-card.accent .stat-val {
       color: var(--color-accent);
     }
 
-    /* Action Button */
+    .stat-card-total-ram {
+      font-size: 11px;
+      margin-top: 4px;
+      border-top: 1px solid var(--border-color);
+      padding-top: 4px;
+      width: 100%;
+      color: var(--text-secondary);
+    }
+
+    /* Google Pill Buttons */
     .btn-main {
       width: 100%;
-      padding: 12px;
+      padding: 10px 24px;
       border: none;
-      border-radius: var(--radius-md);
+      border-radius: 100px;
       font-size: 13px;
-      font-weight: 600;
+      font-weight: 500;
       font-family: var(--font-family);
       cursor: pointer;
       display: flex;
@@ -294,33 +318,67 @@
       justify-content: center;
       transition: var(--transition);
       background-color: var(--color-primary);
-      color: #ffffff;
-      box-shadow: 0 4px 12px var(--color-primary-glow);
-      margin-bottom: 14px;
+      color: var(--btn-primary-text);
+      margin-bottom: 12px;
+      letter-spacing: 0.1px;
     }
 
     .btn-main:hover {
       background-color: var(--color-primary-hover);
-      box-shadow: 0 6px 16px var(--color-primary-glow);
+      box-shadow: 0 1px 3px rgba(60,64,67,0.3);
     }
 
     .btn-main:active {
-      transform: scale(0.99);
+      background-color: var(--color-primary-hover);
     }
 
     .btn-main[disabled] {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
       box-shadow: none;
     }
 
-    /* Settings Group */
-    .settings-group {
-      background-color: var(--bg-surface);
+    /* Session Summary Box */
+    .session-summary-box {
+      background-color: var(--bg-card);
       border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
+      border-radius: var(--radius-lg);
+      padding: 10px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .session-title {
+      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 12px;
+    }
+
+    .session-info {
+      text-align: right;
+      line-height: 1.3;
+    }
+
+    .session-tabs-count {
+      font-weight: 500;
+      color: var(--color-primary);
+      font-size: 12px;
+    }
+
+    .session-ram-saved {
+      font-size: 11px;
+      color: var(--color-accent);
+      font-weight: 500;
+    }
+
+    /* Settings Group (Google Cards) */
+    .settings-group {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
       padding: 12px 14px;
-      box-shadow: var(--shadow-main);
       display: flex;
       flex-direction: column;
       gap: 10px;
@@ -340,13 +398,19 @@
 
     .settings-badge {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 500;
       color: var(--color-primary);
       background-color: var(--color-primary-glow);
       padding: 2px 8px;
-      border-radius: 6px;
+      border-radius: 100px;
     }
 
+    .settings-badge.accent {
+      color: var(--color-accent);
+      background-color: var(--color-accent-glow);
+    }
+
+    /* Google Slider input */
     .slider-input {
       -webkit-appearance: none;
       appearance: none;
@@ -361,15 +425,80 @@
     .slider-input::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       background: var(--color-primary);
       cursor: pointer;
       transition: var(--transition);
+      box-shadow: 0 1px 3px rgba(60,64,67,0.3);
     }
 
-    /* Lists and Scrollable Containers */
+    .slider-input::-webkit-slider-thumb:hover {
+      transform: scale(1.1);
+    }
+
+    /* Auto-complete Dropdown Input styling */
+    .ignore-input-wrap {
+      display: flex;
+      gap: 8px;
+      margin-top: 2px;
+      position: relative;
+    }
+
+    .ignore-input-box {
+      width: 100%;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      background: var(--bg-base);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      font-size: 12px;
+      outline: none;
+      transition: var(--transition);
+    }
+
+    .ignore-input-box:focus {
+      border-color: var(--color-primary);
+      box-shadow: 0 0 0 2px var(--color-primary-glow);
+      background: var(--bg-card);
+    }
+
+    .autocomplete-dropdown {
+      display: none;
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      box-shadow: var(--shadow-main);
+      z-index: 1000;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .autocomplete-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      font-size: 12px;
+      color: var(--text-secondary);
+      border-bottom: 1px solid var(--border-color);
+      transition: var(--transition);
+    }
+
+    .autocomplete-item:hover, .autocomplete-item.active {
+      background-color: var(--color-primary-glow);
+      color: var(--color-primary);
+    }
+
+    .autocomplete-item:last-child {
+      border-bottom: none;
+    }
+
+    /* List Layout styles */
     .list-container {
       display: flex;
       flex-direction: column;
@@ -378,15 +507,15 @@
     }
 
     .list-header {
-      font-size: 10px;
-      font-weight: 600;
+      font-size: 11px;
+      font-weight: 500;
       color: var(--text-secondary);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      text-transform: none;
       margin-bottom: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
+      flex-shrink: 0;
     }
 
     .scroll-container {
@@ -394,41 +523,38 @@
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 6px;
       padding-right: 2px;
     }
 
+    /* Material Design Flat List Rows */
     .list-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 8px 12px;
-      background-color: var(--bg-surface);
-      border: 1px solid var(--border-color);
-      border-radius: var(--radius-md);
-      gap: 8px;
-      transition: var(--transition);
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-color);
+      background-color: transparent;
+      gap: 12px;
     }
 
-    .list-item:hover {
-      border-color: rgba(59, 130, 246, 0.15);
-      background-color: rgba(255, 255, 255, 0.01);
+    .list-item:last-child {
+      border-bottom: none;
     }
 
     .tab-info-wrap {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       min-width: 0;
       flex: 1;
       cursor: pointer;
     }
 
     .tab-favicon {
-      width: 14px;
-      height: 14px;
+      width: 16px;
+      height: 16px;
       flex-shrink: 0;
-      border-radius: 3px;
+      border-radius: 4px;
     }
 
     .tab-text-details {
@@ -438,8 +564,8 @@
     }
 
     .tab-title-text {
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
       color: var(--text-primary);
       white-space: nowrap;
       overflow: hidden;
@@ -447,30 +573,41 @@
     }
 
     .tab-meta-text {
-      font-size: 10px;
-      color: var(--text-muted);
+      font-size: 11px;
+      color: var(--text-secondary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
+    /* Outline Pill Buttons */
     .wake-btn {
-      padding: 4px 10px;
+      padding: 4px 12px;
       font-size: 11px;
       font-weight: 500;
-      border-radius: 6px;
+      border-radius: 100px;
       border: 1px solid var(--border-color);
-      background-color: var(--bg-surface);
-      color: var(--text-primary);
+      background-color: transparent;
+      color: var(--color-primary);
       cursor: pointer;
       transition: var(--transition);
       font-family: var(--font-family);
     }
 
     .wake-btn:hover {
-      background-color: var(--color-primary);
-      color: #ffffff;
+      background-color: var(--color-primary-glow);
       border-color: var(--color-primary);
+      color: var(--color-primary);
+    }
+
+    .remove-ignore-btn {
+      color: var(--text-muted);
+    }
+
+    .remove-ignore-btn:hover {
+      background-color: rgba(217, 83, 79, 0.08) !important;
+      color: #d9534f !important;
+      border-color: #d9534f !important;
     }
 
     .empty-state {
@@ -486,24 +623,27 @@
     }
 
     .empty-title {
-      font-size: 12px;
-      font-weight: 500;
+      font-size: 13px;
+      font-weight: 400;
       color: var(--text-secondary);
     }
 
-    /* Scrollbar */
+    /* Scrollbar Design */
     ::-webkit-scrollbar {
-      width: 4px;
+      width: 6px;
     }
     ::-webkit-scrollbar-track {
       background: transparent;
     }
     ::-webkit-scrollbar-thumb {
-      background: var(--border-color);
-      border-radius: 2px;
+      background: var(--scrollbar-thumb);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--scrollbar-thumb-hover);
     }
 
-    /* Toast style */
+    /* Snackbar (Toast style) */
     .toast {
       position: absolute;
       bottom: 85px;
@@ -512,15 +652,16 @@
       background-color: var(--bg-surface);
       color: var(--text-primary);
       padding: 8px 16px;
-      border-radius: 20px;
-      font-size: 11px;
+      border-radius: 100px;
+      font-size: 12px;
       font-weight: 500;
-      box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+      box-shadow: var(--shadow-main);
       border: 1px solid var(--border-color);
       z-index: 100;
-      transition: opacity 0.2s, transform 0.2s;
+      transition: opacity 0.15s, transform 0.15s;
       opacity: 0;
       pointer-events: none;
+      white-space: nowrap;
     }
 
     .toast.show {
@@ -529,22 +670,29 @@
     }
 
     .toast-success {
-      border-color: var(--color-accent);
+      border-left: 4px solid var(--color-accent);
     }
 
     .toast-error {
-      border-color: var(--color-danger);
+      border-left: 4px solid #d9534f;
     }
 
-    /* Footer styling overrides to match theme border dynamically */
     .footer-wrap {
-      border-top: 1px solid var(--border-color) !important;
+      margin-top: 16px;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-color);
+      font-size: 11px;
+      text-align: center;
+      color: var(--text-secondary);
+      flex-shrink: 0;
     }
+
     .footer-wrap a {
       color: var(--color-primary);
       text-decoration: none;
-      transition: var(--transition);
+      font-weight: 500;
     }
+
     .footer-wrap a:hover {
       text-decoration: underline;
     }
@@ -555,7 +703,7 @@
   <!-- Header -->
   <header>
     <div class="brand">
-      <img src="/icons/icon-48-removebg-preview.png" class="logo-img" alt="Shield Logo">
+      <img src="/icons/icon-48.png" class="logo-img" alt="Shield Logo">
       <span class="logo-text">RAMGuard</span>
     </div>
     <button id="themeToggleBtn" class="theme-toggle-btn" title="Toggle Theme">
@@ -587,9 +735,10 @@
           <div class="stat-val" id="sleepingTabsCount">0</div>
           <div class="stat-lbl">Sleeping Tabs</div>
         </div>
-        <div class="stat-card accent" id="ramSavedCard" title="Estimated RAM saved (80MB per sleeping tab)">
-          <div class="stat-val" id="totalSavedRAM">0 MB</div>
-          <div class="stat-lbl">RAM Saved</div>
+        <div class="stat-card accent" id="ramSavedCard" title="Estimated RAM saved (80-120MB per tab)">
+          <div class="stat-val" id="sessionSavedRAM">0 MB</div>
+          <div class="stat-lbl">Session Saved</div>
+          <div class="stat-card-total-ram" id="totalSavedRAM">Total: 0 MB</div>
         </div>
       </div>
 
@@ -598,7 +747,16 @@
         Hibernate Inactive Now
       </button>
 
-      <!-- Settings Section -->
+      <!-- Today's Session Summary Box -->
+      <div class="session-summary-box">
+        <span class="session-title">Today's Session</span>
+        <div class="session-info">
+          <div id="sessionTabsCount" class="session-tabs-count">0 tabs hibernated</div>
+          <div id="sessionRAMSavedToday" class="session-ram-saved">0 MB RAM saved</div>
+        </div>
+      </div>
+
+      <!-- Settings Section (Inactivity Timeout) -->
       <div class="settings-group">
         <div class="settings-header">
           <span class="settings-lbl">Auto-Hibernate Idle Time</span>
@@ -606,16 +764,40 @@
         </div>
         <input type="range" id="inactiveSlider" class="slider-input" min="1" max="30" step="1" value="1" title="Adjust inactivity time slider (1 to 30 minutes)">
       </div>
+
+      <!-- Ignore List Settings Section -->
+      <div class="settings-group" style="margin-top: 12px; margin-bottom: 8px;">
+        <div class="settings-header">
+          <span class="settings-lbl">Never Hibernate Sites</span>
+          <span class="settings-badge accent" id="ignoreCountBadge">0 sites</span>
+        </div>
+        <div class="ignore-input-wrap">
+          <div style="flex: 1; position: relative;">
+            <input type="text" id="newIgnoreInput" class="ignore-input-box" placeholder="e.g., github.com" autocomplete="off">
+            <div id="autocompleteDropdown" class="autocomplete-dropdown">
+              <!-- suggestions dynamically inserted -->
+            </div>
+          </div>
+          <button id="addIgnoreBtn" class="wake-btn" style="padding: 8px 16px;" title="Add domain to ignore list">Add</button>
+        </div>
+        <div id="ignoreListContainer" style="max-height: 105px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; padding-right: 2px; margin-top: 6px; border-top: 1px solid var(--border-color); padding-top: 6px;">
+          <!-- Dynamic ignore list items -->
+      </div>
     </div>
 
     <!-- SLEEPING TABS PANE -->
     <div id="pane-sleeping" class="tab-pane">
       <div class="list-container">
-        <div class="list-header">
+        <div class="list-header" style="gap: 6px;">
           <span>Sleeping Tabs</span>
-          <button id="wakeAllBtn" class="wake-btn" style="padding: 2px 8px; font-size: 10px; border-radius: 4px;" title="Wake up all sleeping tabs">
-            Wake All
-          </button>
+          <div style="display: flex; gap: 4px;">
+            <button id="wakeAllBtn" class="wake-btn" style="padding: 2px 8px; font-size: 10px;" title="Wake up all sleeping tabs globally">
+              Wake All Global
+            </button>
+            <button id="wakeWindowBtn" class="wake-btn" style="padding: 2px 8px; font-size: 10px;" title="Wake up sleeping tabs in current window">
+              Wake All in Window
+            </button>
+          </div>
         </div>
         <div id="sleepingTabsList" class="scroll-container">
           <!-- Dynamic sleeping tabs -->
@@ -628,7 +810,7 @@
       <div class="list-container">
         <div class="list-header">
           <span>Recent Hibernations</span>
-          <button id="clearHistoryBtn" class="wake-btn" style="padding: 2px 8px; font-size: 10px; border-radius: 4px;" title="Clear hibernation log">
+          <button id="clearHistoryBtn" class="wake-btn" style="padding: 2px 8px; font-size: 10px;" title="Clear hibernation log">
             Clear Log
           </button>
         </div>
@@ -641,10 +823,11 @@
   </div>
 
   <!-- Footer -->
-  <div class="footer-wrap" style="margin-top:24px; padding-top:16px; border-top:1px solid rgba(255,255,255,0.1); font-size:12px; text-align:center; opacity:0.7;">
+  <div class="footer-wrap">
     Made by Vignesh Prabhu<br>
     <a href="https://www.linkedin.com/in/vigneshprabhu11/" target="_blank">LinkedIn</a> • 
-    <a href="https://github.com/vignesh05p" target="_blank">GitHub</a>
+    <a href="https://github.com/vignesh05p" target="_blank">GitHub</a> • 
+    <a href="https://x.com/prabhu_ai" target="_blank">X (Twitter)</a>
   </div>
 
   <!-- Toast Notification -->
