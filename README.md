@@ -14,7 +14,7 @@ RAMGuard automatically puts inactive tabs to sleep after just 1 minute, dramatic
 * **Shows exactly how much RAM you’ve saved**
 * **Clean, modern interface**
 
-Perfect for heavy tab users who actually want their browser to stay fast. **100% free. No bloat. No tracking.**
+Perfect for heavy tab users who actually want their browser to stay fast. **100% free. No bloat. No personal tracking.**
 
 ---
 
