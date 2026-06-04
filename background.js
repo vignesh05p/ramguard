@@ -1,4 +1,4 @@
-// RAMGuard v1.6.3 Background Service Worker (Manifest V3)
+// RAMGuard v1.7.0 Background Service Worker (Manifest V3)
 // Performance Optimized for high tab counts (50-100+ tabs) on Windows/Linux systems.
 
 const DEFAULT_INACTIVE_MINUTES = 1;
@@ -104,6 +104,162 @@ function isTabEligible(tab, ignoreList) {
   return true;
 }
 
+// Show chrome notification toast
+function showSystemNotification(title, message) {
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: 'icons/icon-48.png',
+    title: title,
+    message: message,
+    priority: 1
+  });
+}
+
+// Update action badge counting sleeping tabs, hidden when paused
+async function updateBadge() {
+  try {
+    const data = await chrome.storage.local.get(['pausedUntil']);
+    const pausedUntil = data.pausedUntil || 0;
+    if (Date.now() < pausedUntil) {
+      chrome.action.setBadgeText({ text: '' });
+      return;
+    }
+    
+    const sleepingTabs = await chrome.tabs.query({ discarded: true });
+    const count = sleepingTabs.length;
+    
+    if (count > 0) {
+      chrome.action.setBadgeText({ text: count.toString() });
+      chrome.action.setBadgeBackgroundColor({ color: '#1e8e3e' }); // Material green
+    } else {
+      chrome.action.setBadgeText({ text: '' });
+    }
+  } catch (e) {
+    console.warn('[RAMGuard] Error updating badge:', e);
+  }
+}
+
+// Hibernate all tabs in other windows
+async function hibernateAllOtherWindows(currentWindowId) {
+  const data = await chrome.storage.local.get(['ignoreList', 'pausedUntil']);
+  const pausedUntil = data.pausedUntil || 0;
+  if (Date.now() < pausedUntil) {
+    console.log('[RAMGuard] Pause active. Skipping hibernate other windows.');
+    return { count: 0, savedRAM: 0 };
+  }
+  
+  const ignoreList = data.ignoreList || [];
+  
+  // Query all background tabs not in the current window
+  const tabs = await chrome.tabs.query({ active: false, discarded: false, pinned: false });
+  const otherWindowTabs = tabs.filter(t => t.windowId !== currentWindowId);
+  
+  // Check eligibility in parallel
+  const eligibilityResults = await Promise.all(otherWindowTabs.map(async (tab) => {
+    const eligible = await isTabEligibleAsync(tab, ignoreList);
+    return { tab, eligible };
+  }));
+  const toDiscard = eligibilityResults.filter(r => r.eligible).map(r => r.tab);
+  
+  let count = 0;
+  let savedRAM = 0;
+  
+  if (toDiscard.length > 0) {
+    await processInBatches(toDiscard, async (tab) => {
+      try {
+        await chrome.tabs.discard(tab.id);
+        count++;
+        savedRAM += estimateTabRAM(tab.url);
+      } catch (e) {
+        console.warn(`[RAMGuard] Failed to discard tab ${tab.id}:`, e);
+      }
+    }, 5);
+  }
+  
+  console.log(`[RAMGuard] Hibernated ${count} tabs in other windows. Saved ${savedRAM} MB.`);
+  if (count > 0) {
+    showSystemNotification("Other Windows Hibernated", `${count} tab${count === 1 ? '' : 's'} hibernated • ${savedRAM} MB saved`);
+  }
+  return { count, savedRAM };
+}
+
+// Check and collect reasons for protected background tabs
+async function getActiveProtections() {
+  const data = await chrome.storage.local.get(['ignoreList']);
+  const ignoreList = data.ignoreList || [];
+  
+  const tabs = await chrome.tabs.query({ discarded: false, active: false });
+  const results = [];
+  
+  await Promise.all(tabs.map(async (tab) => {
+    if (tab.pinned) {
+      results.push({ id: tab.id, title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl, reason: 'Pinned Tab' });
+      return;
+    }
+    if (tab.audible) {
+      results.push({ id: tab.id, title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl, reason: 'Audio Playing' });
+      return;
+    }
+    if (isIgnored(tab.url, ignoreList)) {
+      results.push({ id: tab.id, title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl, reason: 'Excluded Site' });
+      return;
+    }
+    
+    const protection = await checkTabSmartProtection(tab.id);
+    if (protection.isProtected) {
+      let reason = 'Smart Shield Active';
+      if (protection.hasActiveWebRTC) {
+        reason = 'WebRTC Active';
+      } else if (protection.hasUnsavedChanges) {
+        reason = 'Unsaved Changes';
+      } else if (protection.hasActiveNetwork) {
+        reason = 'Network Activity';
+      }
+      results.push({ id: tab.id, title: tab.title, url: tab.url, favIconUrl: tab.favIconUrl, reason: reason });
+    }
+  }));
+  
+  return results;
+}
+
+
+
+// Check if a tab is eligible for hibernation (asynchronous check for smart exception handling)
+async function isTabEligibleAsync(tab, ignoreList) {
+  if (!isTabEligible(tab, ignoreList)) {
+    return false;
+  }
+  const protection = await checkTabSmartProtection(tab.id);
+  if (protection.isProtected) {
+    console.log(`[RAMGuard] Tab ${tab.id} ("${tab.title}") is protected:`, protection);
+    return false;
+  }
+  return true;
+}
+
+// Query tab's content script to detect active WebRTC connections, unsaved state, and downloads/uploads
+async function checkTabSmartProtection(tabId) {
+  try {
+    return await new Promise((resolve) => {
+      const timeout = setTimeout(() => {
+        resolve({ isProtected: false });
+      }, 250);
+
+      chrome.tabs.sendMessage(tabId, { command: 'check-protection' }, (response) => {
+        clearTimeout(timeout);
+        if (chrome.runtime.lastError || !response) {
+          resolve({ isProtected: false });
+        } else {
+          resolve(response);
+        }
+      });
+    });
+  } catch (e) {
+    return { isProtected: false };
+  }
+}
+
+
 // Helper to execute tab actions in small chunks of concurrent operations
 // to prevent overloading the browser process under high tab counts.
 async function processInBatches(items, actionFn, batchSize = 5) {
@@ -130,7 +286,10 @@ async function initStorage() {
       'sessionDate',
       'sessionHibernatedCount',
       'sessionSavedRAM_MB',
-      'ignoreList'
+      'ignoreList',
+      'pausedUntil',
+      'hibernateAfterMinutes',
+      'autoHibernateEnabled'
     ], (data) => {
       if (chrome.runtime.lastError) {
         return reject(chrome.runtime.lastError);
@@ -140,42 +299,72 @@ async function initStorage() {
       const updates = {};
       const today = getTodayDateString();
 
-      if (safeData.hibernateInactiveMinutes === undefined) {
-        updates.hibernateInactiveMinutes = DEFAULT_INACTIVE_MINUTES;
-      }
-      if (safeData.thresholdGB === undefined) {
-        updates.thresholdGB = DEFAULT_THRESHOLD_GB;
-      }
-      if (safeData.hibernationHistory === undefined) {
-        updates.hibernationHistory = [];
-      }
-      if (safeData.totalHibernatedCount === undefined) {
-        updates.totalHibernatedCount = 0;
-      }
-      if (safeData.totalSavedRAM_MB === undefined) {
-        updates.totalSavedRAM_MB = 0;
-      }
-      if (safeData.ignoreList === undefined) {
-        updates.ignoreList = [];
-      }
-      
-      if (safeData.sessionDate !== today) {
-        updates.sessionDate = today;
-        updates.sessionHibernatedCount = 0;
-        updates.sessionSavedRAM_MB = 0;
-      }
+      // Query currently sleeping tabs to sync stats on startup
+      chrome.tabs.query({ discarded: true }, (sleepingTabs) => {
+        if (chrome.runtime.lastError) {
+          console.warn('[RAMGuard] Error querying discarded tabs on init:', chrome.runtime.lastError);
+        }
 
-      if (Object.keys(updates).length > 0) {
-        chrome.storage.local.set(updates, () => {
-          if (chrome.runtime.lastError) {
-            reject(chrome.runtime.lastError);
-          } else {
-            resolve();
-          }
-        });
-      } else {
-        resolve();
-      }
+        const sleepingCount = sleepingTabs ? sleepingTabs.length : 0;
+        let sleepingRAM = 0;
+        if (sleepingTabs) {
+          sleepingTabs.forEach(t => {
+            sleepingRAM += estimateTabRAM(t.url);
+          });
+        }
+
+        if (safeData.hibernateInactiveMinutes === undefined) {
+          updates.hibernateInactiveMinutes = DEFAULT_INACTIVE_MINUTES;
+        }
+        if (safeData.thresholdGB === undefined) {
+          updates.thresholdGB = DEFAULT_THRESHOLD_GB;
+        }
+        if (safeData.hibernationHistory === undefined) {
+          updates.hibernationHistory = [];
+        }
+        if (safeData.ignoreList === undefined) {
+          updates.ignoreList = [];
+        }
+        if (safeData.pausedUntil === undefined) {
+          updates.pausedUntil = 0;
+        }
+        if (safeData.hibernateAfterMinutes === undefined) {
+          updates.hibernateAfterMinutes = 1;
+        }
+        if (safeData.autoHibernateEnabled === undefined) {
+          updates.autoHibernateEnabled = true;
+        }
+
+        // Sync total counts
+        const initialTotalCount = safeData.totalHibernatedCount || 0;
+        const initialTotalRAM = safeData.totalSavedRAM_MB || 0;
+        updates.totalHibernatedCount = Math.max(initialTotalCount, sleepingCount);
+        updates.totalSavedRAM_MB = Math.max(initialTotalRAM, sleepingRAM);
+
+        // Sync session counts
+        if (safeData.sessionDate !== today) {
+          updates.sessionDate = today;
+          updates.sessionHibernatedCount = sleepingCount;
+          updates.sessionSavedRAM_MB = sleepingRAM;
+        } else {
+          const initialSessionCount = safeData.sessionHibernatedCount || 0;
+          const initialSessionRAM = safeData.sessionSavedRAM_MB || 0;
+          updates.sessionHibernatedCount = Math.max(initialSessionCount, sleepingCount);
+          updates.sessionSavedRAM_MB = Math.max(initialSessionRAM, sleepingRAM);
+        }
+
+        if (Object.keys(updates).length > 0) {
+          chrome.storage.local.set(updates, () => {
+            if (chrome.runtime.lastError) {
+              reject(chrome.runtime.lastError);
+            } else {
+              resolve();
+            }
+          });
+        } else {
+          resolve();
+        }
+      });
     });
   });
 }
@@ -286,7 +475,23 @@ async function performTabHibernationChecks(allTabs, userState = 'idle') {
     }
 
     const settings = data || {};
-    const globalInactiveMinutes = settings.hibernateInactiveMinutes || DEFAULT_INACTIVE_MINUTES;
+    const pausedUntil = settings.pausedUntil || 0;
+    if (Date.now() < pausedUntil) {
+      console.log(`[RAMGuard Perf] Hibernation paused until ${new Date(pausedUntil).toISOString()}. Skipping checks.`);
+      return;
+    }
+
+    if (settings.autoHibernateEnabled === false) {
+      console.log('[RAMGuard Perf] Auto-hibernation is disabled. Skipping checks.');
+      return;
+    }
+
+    const globalInactiveMinutes = settings.hibernateAfterMinutes !== undefined ? settings.hibernateAfterMinutes : 1;
+    if (globalInactiveMinutes === -1) {
+      console.log(`[RAMGuard Perf] Auto-hibernation set to Never. Skipping checks.`);
+      return;
+    }
+
     const ignoreList = settings.ignoreList || [];
     const thresholdGB = settings.thresholdGB || DEFAULT_THRESHOLD_GB;
 
@@ -302,11 +507,17 @@ async function performTabHibernationChecks(allTabs, userState = 'idle') {
     const discardCandidates = [];
     const protectedTabs = [];
 
-    for (const tab of activeTabs) {
-      if (isTabEligible(tab, ignoreList)) {
-        discardCandidates.push(tab);
+    // Check all active tabs in parallel
+    const eligibilityResults = await Promise.all(activeTabs.map(async (tab) => {
+      const eligible = await isTabEligibleAsync(tab, ignoreList);
+      return { tab, eligible };
+    }));
+
+    for (const result of eligibilityResults) {
+      if (result.eligible) {
+        discardCandidates.push(result.tab);
       } else {
-        protectedTabs.push(tab);
+        protectedTabs.push(result.tab);
       }
     }
 
@@ -317,13 +528,18 @@ async function performTabHibernationChecks(allTabs, userState = 'idle') {
 
     if (userState === 'active') {
       remainingCandidates.push(...discardCandidates);
-      console.log(`[RAMGuard Perf] User active. Deferring idle inactivity checks.`);
+      console.log(`[RAMGuard Perf] User active. Deferring inactivity checks.`);
     } else {
       for (const tab of discardCandidates) {
         let thresholdMinutes = globalInactiveMinutes;
         const windowKey = `window_inactive_minutes_${tab.windowId}`;
         if (settings[windowKey] !== undefined) {
           thresholdMinutes = settings[windowKey];
+        }
+
+        if (thresholdMinutes === -1) {
+          remainingCandidates.push(tab);
+          continue;
         }
 
         const cutoff = now - thresholdMinutes * 60 * 1000;
@@ -378,6 +594,7 @@ async function performTabHibernationChecks(allTabs, userState = 'idle') {
     // 3. TAB LIMIT CHECK (Max 20 Active Tabs)
     // Exclude the candidate tabs discarded in Step 2 from final counts
     const finalActiveCount = remainingActiveCount - toDiscardThreshold.length;
+    let toDiscardLimit = [];
     
     if (finalActiveCount > 20) {
       console.log(`[RAMGuard Perf] Active tab count (${finalActiveCount}) exceeds 20. Enforcing limit...`);
@@ -386,7 +603,7 @@ async function performTabHibernationChecks(allTabs, userState = 'idle') {
       remainingActiveCandidates.sort((a, b) => (a.lastAccessed || 0) - (b.lastAccessed || 0));
 
       const numToDiscardLimit = finalActiveCount - 20;
-      const toDiscardLimit = remainingActiveCandidates.slice(0, numToDiscardLimit);
+      toDiscardLimit = remainingActiveCandidates.slice(0, numToDiscardLimit);
 
       if (toDiscardLimit.length > 0) {
         await processInBatches(toDiscardLimit, (tab) => 
@@ -397,10 +614,21 @@ async function performTabHibernationChecks(allTabs, userState = 'idle') {
       }
     }
 
+    // System Notification for Auto-Hibernation
+    const totalCount = toDiscardInactivity.length + toDiscardThreshold.length + toDiscardLimit.length;
+    if (totalCount > 0) {
+      let savedRAM = 0;
+      [...toDiscardInactivity, ...toDiscardThreshold, ...toDiscardLimit].forEach(t => {
+        savedRAM += estimateTabRAM(t.url);
+      });
+      showSystemNotification("Auto-Hibernation Active", `${totalCount} tab${totalCount === 1 ? '' : 's'} hibernated • ${savedRAM} MB saved`);
+    }
+
   } catch (error) {
     console.error('[RAMGuard Perf] Error running performTabHibernationChecks:', error);
   } finally {
     console.log(`[RAMGuard Perf] Tab check cycle completed in ${Date.now() - startTime}ms.`);
+    updateBadge();
   }
 }
 
@@ -409,22 +637,39 @@ async function enforceTabLimit() {
   try {
     const activeTabs = await chrome.tabs.query({ discarded: false });
     if (activeTabs.length > 20) {
-      const data = await chrome.storage.local.get(['ignoreList']);
+      const data = await chrome.storage.local.get(['ignoreList', 'pausedUntil', 'hibernateAfterMinutes', 'autoHibernateEnabled']);
       if (chrome.runtime.lastError) return;
+
+      if (data.autoHibernateEnabled === false) return;
+
+      const pausedUntil = data.pausedUntil || 0;
+      if (Date.now() < pausedUntil) return;
+
+      const hibernateAfterMinutes = data.hibernateAfterMinutes !== undefined ? data.hibernateAfterMinutes : 1;
+      if (hibernateAfterMinutes === -1) return;
+
       const ignoreList = data.ignoreList || [];
 
-      const candidates = activeTabs.filter(t => isTabEligible(t, ignoreList));
+      // Check all active tabs in parallel
+      const eligibilityResults = await Promise.all(activeTabs.map(async (tab) => {
+        const eligible = await isTabEligibleAsync(tab, ignoreList);
+        return { tab, eligible };
+      }));
+      const candidates = eligibilityResults.filter(r => r.eligible).map(r => r.tab);
       candidates.sort((a, b) => (a.lastAccessed || 0) - (b.lastAccessed || 0));
       
       const numToHibernate = activeTabs.length - 20;
       const toDiscard = candidates.slice(0, numToHibernate);
 
       if (toDiscard.length > 0) {
+        let savedRAM = 0;
+        toDiscard.forEach(t => savedRAM += estimateTabRAM(t.url));
         await processInBatches(toDiscard, (tab) => 
           chrome.tabs.discard(tab.id).catch(e => console.warn(`[RAMGuard] Discard error:`, e)),
           5
         );
         console.log(`[RAMGuard Perf] Enforced tab limit: Hibernated ${toDiscard.length} tabs.`);
+        showSystemNotification("Active Tab Limit Reached", `${toDiscard.length} tab${toDiscard.length === 1 ? '' : 's'} hibernated to maintain limit • ${savedRAM} MB saved`);
       }
     }
   } catch (error) {
@@ -438,7 +683,12 @@ async function hibernateAllEligible() {
   const ignoreList = data.ignoreList || [];
   const tabs = await chrome.tabs.query({ active: false, discarded: false, pinned: false });
   
-  const toDiscard = tabs.filter(tab => isTabEligible(tab, ignoreList));
+  // Check all active tabs in parallel
+  const eligibilityResults = await Promise.all(tabs.map(async (tab) => {
+    const eligible = await isTabEligibleAsync(tab, ignoreList);
+    return { tab, eligible };
+  }));
+  const toDiscard = eligibilityResults.filter(r => r.eligible).map(r => r.tab);
   let count = 0;
   let savedRAM = 0;
   
@@ -455,6 +705,10 @@ async function hibernateAllEligible() {
   }
   
   console.log(`[RAMGuard Perf] Manually hibernated ${count} tabs. Saved ${savedRAM} MB.`);
+  if (count > 0) {
+    showSystemNotification("Manual Hibernation Complete", `${count} tab${count === 1 ? '' : 's'} hibernated • ${savedRAM} MB saved`);
+  }
+  updateBadge();
   return { count, savedRAM };
 }
 
@@ -483,9 +737,27 @@ async function wakeAllTabs(windowId = null) {
   return count;
 }
 
+// Helper to configure Chrome alarms based on minutes setting
+function setupAlarm(minutes) {
+  if (minutes === -1) {
+    chrome.alarms.clear('checkInactive', () => {
+      console.log('[RAMGuard] Inactivity alarm cleared (Never).');
+    });
+  } else {
+    const period = Math.max(1, Math.floor(minutes));
+    chrome.alarms.create('checkInactive', { periodInMinutes: period });
+    console.log(`[RAMGuard] Inactivity alarm setup for every ${period} minutes.`);
+  }
+}
+
 // Initialize storage settings on load
 initStorage().then(() => {
   console.log('[RAMGuard Perf] Storage settings loaded and initialized.');
+  chrome.storage.local.get(['hibernateAfterMinutes'], (data) => {
+    const minutes = data.hibernateAfterMinutes !== undefined ? data.hibernateAfterMinutes : 1;
+    setupAlarm(minutes);
+    updateBadge();
+  });
 }).catch((err) => {
   console.error('[RAMGuard Perf] Storage settings initialization failed:', err);
 });
@@ -495,8 +767,11 @@ chrome.runtime.onInstalled.addListener(async () => {
   console.log('[RAMGuard Perf] Installed/Updated successfully.');
   try {
     await initStorage();
-    // Setup periodic check alarm
-    chrome.alarms.create('checkInactive', { periodInMinutes: 1 });
+    chrome.storage.local.get(['hibernateAfterMinutes'], (data) => {
+      const minutes = data.hibernateAfterMinutes !== undefined ? data.hibernateAfterMinutes : 1;
+      setupAlarm(minutes);
+    });
+    updateBadge();
   } catch (err) {
     console.error('[RAMGuard Perf] Error during runtime.onInstalled init:', err);
   }
@@ -548,6 +823,16 @@ chrome.commands.onCommand.addListener(async (command) => {
     } catch (error) {
       console.error('[RAMGuard Perf] Error during hotkey hibernation:', error);
     }
+  } else if (command === 'hibernate-other-tabs') {
+    console.log('[RAMGuard Perf] Hibernate Other Tabs hotkey triggered');
+    try {
+      chrome.windows.getLastFocused({ populate: false }, async (win) => {
+        if (chrome.runtime.lastError || !win) return;
+        await hibernateAllOtherWindows(win.id);
+      });
+    } catch (error) {
+      console.error('[RAMGuard Perf] Error during hotkey hibernation of other windows:', error);
+    }
   }
 });
 
@@ -566,6 +851,7 @@ chrome.tabs.onCreated.addListener(() => {
   enforceTabLimit().catch(err => {
     console.error('[RAMGuard Perf] Error in onCreated tab limit enforcement:', err);
   });
+  updateBadge();
 });
 
 // Track discards for history (triggered by our discards or Chrome's native discards)
@@ -573,6 +859,25 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (changeInfo.discarded === true) {
     console.log(`[RAMGuard Perf] Tab discarded: "${tab.title}" (${tab.url})`);
     logHibernation(tab);
+    updateBadge();
+  } else if (changeInfo.status === 'complete') {
+    updateBadge();
+  }
+});
+
+chrome.tabs.onRemoved.addListener(() => {
+  updateBadge();
+});
+
+// Monitor configuration and pause status updates
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local') {
+    if (changes.hibernateAfterMinutes) {
+      setupAlarm(changes.hibernateAfterMinutes.newValue);
+    }
+    if (changes.pausedUntil) {
+      updateBadge();
+    }
   }
 });
 
@@ -586,6 +891,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: false, error: err.message });
       });
     return true; // Keep message channel open for async response
+  }
+
+  if (message.command === 'hibernate-other-tabs') {
+    chrome.windows.getCurrent({ populate: false }, (win) => {
+      if (chrome.runtime.lastError || !win) {
+        sendResponse({ success: false, error: 'Could not detect active window' });
+        return;
+      }
+      hibernateAllOtherWindows(win.id)
+        .then((result) => sendResponse({ success: true, count: result.count, savedRAM: result.savedRAM }))
+        .catch((err) => {
+          console.error('[RAMGuard Perf] Error handling hibernate other message:', err);
+          sendResponse({ success: false, error: err.message });
+        });
+    });
+    return true;
+  }
+
+  if (message.command === 'get-active-protections') {
+    getActiveProtections()
+      .then((results) => sendResponse({ success: true, protections: results }))
+      .catch((err) => {
+        console.error('[RAMGuard Perf] Error handling get active protections message:', err);
+        sendResponse({ success: false, error: err.message });
+      });
+    return true;
   }
 
   if (message.command === 'wake-all') {

@@ -53,6 +53,6 @@ RAMGuard works on all Chromium-based browsers (Google Chrome, Brave, Microsoft E
 
 To pack the extension for distribution, zip the folder contents using the terminal command:
 ```bash
-zip -r ramguard-v1.6.3.zip manifest.json background.js popup icons PRIVACY.md README.md
+zip -r ramguard-v1.8.0.zip manifest.json background.js content.js main-world.js popup icons PRIVACY.md README.md
 ```
 *(Run from inside the `ramguard` directory)*

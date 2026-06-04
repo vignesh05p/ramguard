@@ -1,147 +1,66 @@
-// RAMGuard v1.6.3 Popup Controller
-// Handles Google Material Design 3 theme transitions, statistics, ignore lists, autocomplete, and waking.
-
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('[RAMGuard Perf] Popup initialized.');
-
-  // Cache DOM elements
+  // DOM Cache
   const themeToggleBtn = document.getElementById('themeToggleBtn');
+  const navTabs = document.querySelectorAll('.nav-tab');
+  const tabPanes = document.querySelectorAll('.tab-pane');
+
+  // Dashboard & Toggles
+  const autoHibernateToggle = document.getElementById('autoHibernateToggle');
+  const pauseToggle = document.getElementById('pauseToggle');
+  const pauseTitle = document.getElementById('pauseTitle');
+  const pauseSubTitle = document.getElementById('pauseSubTitle');
+  const timerCard = document.getElementById('timerCard');
+  
+  // Stats
   const activeTabsCountEl = document.getElementById('activeTabsCount');
   const sleepingTabsCountEl = document.getElementById('sleepingTabsCount');
   const sessionSavedRAMEl = document.getElementById('sessionSavedRAM');
   const totalSavedRAMEl = document.getElementById('totalSavedRAM');
   const sessionTabsCountEl = document.getElementById('sessionTabsCount');
   const sessionRAMSavedTodayEl = document.getElementById('sessionRAMSavedToday');
-  
+
+  // Buttons
   const hibernateNowBtn = document.getElementById('hibernateNowBtn');
-  const inactiveSlider = document.getElementById('inactiveSlider');
-  const inactiveValue = document.getElementById('inactiveValue');
-  
-  const sleepingTabsList = document.getElementById('sleepingTabsList');
-  const historyTabsList = document.getElementById('historyTabsList');
-  
+  const hibernateOtherBtn = document.getElementById('hibernateOtherBtn');
   const wakeAllBtn = document.getElementById('wakeAllBtn');
   const wakeWindowBtn = document.getElementById('wakeWindowBtn');
   const clearHistoryBtn = document.getElementById('clearHistoryBtn');
-  
-  const toast = document.getElementById('toast');
-  const toastText = document.getElementById('toastText');
-  const navTabs = document.querySelectorAll('.nav-tab');
-  const tabPanes = document.querySelectorAll('.tab-pane');
 
-  // Ignore List Elements
+  // Lists & Settings
+  const timerSelect = document.getElementById('hibernateAfterMinutesSelect');
+  const protectedListContainer = document.getElementById('protectedListContainer');
+  const sleepingTabsList = document.getElementById('sleepingTabsList');
+  const historyTabsList = document.getElementById('historyTabsList');
+  
+  // Ignore List
   const newIgnoreInput = document.getElementById('newIgnoreInput');
   const addIgnoreBtn = document.getElementById('addIgnoreBtn');
   const ignoreListContainer = document.getElementById('ignoreListContainer');
   const ignoreCountBadge = document.getElementById('ignoreCountBadge');
   const autocompleteDropdown = document.getElementById('autocompleteDropdown');
 
-  // Autocomplete Suggestions Configuration
+  // Toast
+  const toast = document.getElementById('toast');
+  const toastText = document.getElementById('toastText');
+
+  // Autocomplete Suggestions configuration
   const SUGGESTED_DOMAINS = [
-    'youtube.com',
-    'netflix.com',
-    'docs.google.com',
-    'drive.google.com',
-    'meet.google.com',
-    'calendar.google.com',
-    'chatgpt.com',
-    'notion.so',
-    'twitter.com',
-    'linkedin.com',
-    'reddit.com'
+    'youtube.com', 'netflix.com', 'docs.google.com', 'drive.google.com',
+    'meet.google.com', 'calendar.google.com', 'chatgpt.com', 'notion.so',
+    'twitter.com', 'linkedin.com', 'reddit.com'
   ];
 
   let activeSuggestionIndex = -1;
   let currentSuggestions = [];
 
-  // Fuzzy match helper: matches sequences of characters in order
-  function isFuzzyMatch(query, target) {
-    query = query.toLowerCase();
-    target = target.toLowerCase();
-    
-    if (target.includes(query)) return true;
-    
-    let qIdx = 0;
-    for (let tIdx = 0; tIdx < target.length; tIdx++) {
-      if (target[tIdx] === query[qIdx]) {
-        qIdx++;
-      }
-      if (qIdx === query.length) {
-        return true;
-      }
-    }
-    return false;
+  // --- 1. DEBOUNCED LIVE REFRESH SYSTEM ---
+  let refreshTimeout = null;
+  function triggerRefresh() {
+    if (refreshTimeout) clearTimeout(refreshTimeout);
+    refreshTimeout = setTimeout(refreshData, 100);
   }
 
-  function closeDropdown() {
-    autocompleteDropdown.style.display = 'none';
-    autocompleteDropdown.innerHTML = '';
-    activeSuggestionIndex = -1;
-    currentSuggestions = [];
-  }
-
-  function showSuggestions(query) {
-    if (query.length < 2) {
-      closeDropdown();
-      return;
-    }
-
-    chrome.storage.local.get(['ignoreList'], (data) => {
-      const ignoreList = data.ignoreList || [];
-      
-      // Exclude suggestions that are already in the ignore list
-      const filteredDefaults = SUGGESTED_DOMAINS.filter(d => !ignoreList.includes(d));
-      
-      // Run fuzzy matching check
-      currentSuggestions = filteredDefaults.filter(d => isFuzzyMatch(query, d));
-
-      if (currentSuggestions.length === 0) {
-        closeDropdown();
-        return;
-      }
-
-      autocompleteDropdown.innerHTML = '';
-      const fragment = document.createDocumentFragment();
-
-      currentSuggestions.forEach((domain, index) => {
-        const item = document.createElement('div');
-        item.className = 'autocomplete-item';
-        item.textContent = domain;
-        item.dataset.index = index;
-
-        // Click adds suggestion
-        item.addEventListener('click', () => {
-          newIgnoreInput.value = domain;
-          addIgnoreBtn.click();
-          closeDropdown();
-        });
-
-        // Mouse hover updates index
-        item.addEventListener('mousemove', () => {
-          setActiveSuggestion(index);
-        });
-
-        fragment.appendChild(item);
-      });
-
-      autocompleteDropdown.appendChild(fragment);
-      autocompleteDropdown.style.display = 'block';
-      activeSuggestionIndex = -1;
-    });
-  }
-
-  function setActiveSuggestion(index) {
-    const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
-    items.forEach(item => item.classList.remove('active'));
-    
-    activeSuggestionIndex = index;
-    if (index >= 0 && index < items.length) {
-      items[index].classList.add('active');
-      items[index].scrollIntoView({ block: 'nearest' });
-    }
-  }
-
-  // --- 1. SEGMENTED TAB NAVIGATION ---
+  // --- 2. SEGMENTED TAB NAVIGATION ---
   navTabs.forEach(tab => {
     tab.addEventListener('click', () => {
       navTabs.forEach(t => t.classList.remove('active'));
@@ -153,10 +72,11 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetPane) {
         targetPane.classList.add('active');
       }
+      refreshData();
     });
   });
 
-  // --- 2. THEME MANAGEMENT ---
+  // --- 3. THEME MANAGEMENT ---
   function setTheme(isDark) {
     if (isDark) {
       document.body.classList.remove('light');
@@ -190,66 +110,166 @@ document.addEventListener('DOMContentLoaded', () => {
   // Detect system theme preference
   const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)');
   setTheme(systemPrefersDark.matches);
+  systemPrefersDark.addEventListener('change', (e) => setTheme(e.matches));
   
-  // Listen for system theme updates
-  systemPrefersDark.addEventListener('change', (e) => {
-    setTheme(e.matches);
-  });
-
-  // Manual theme toggle button action
   themeToggleBtn.addEventListener('click', () => {
     const isDark = document.body.classList.contains('dark');
     setTheme(!isDark);
   });
 
-  // --- 3. REFRESH DATA & STATISTICS ---
+  // --- 4. REFRESH DATA & STAGE RECONCILIATION ---
   function refreshData() {
     chrome.storage.local.get([
-      'hibernateInactiveMinutes',
+      'hibernateAfterMinutes',
       'hibernationHistory',
       'ignoreList',
       'totalSavedRAM_MB',
       'sessionSavedRAM_MB',
-      'sessionHibernatedCount'
+      'sessionHibernatedCount',
+      'autoHibernateEnabled'
     ], (data) => {
       if (chrome.runtime.lastError) {
-        console.error('[RAMGuard Perf] Error retrieving storage settings:', chrome.runtime.lastError);
+        console.error('[RAMGuard] Error retrieving storage:', chrome.runtime.lastError);
         return;
       }
       const safeData = data || {};
 
-      // Initialize slider configurations
-      const minutes = safeData.hibernateInactiveMinutes || 1;
-      inactiveSlider.value = minutes;
-      inactiveValue.textContent = `${minutes} min`;
+      // Initialize Toggles and Input values
+      const autoEnabled = safeData.autoHibernateEnabled !== false;
+      autoHibernateToggle.checked = autoEnabled;
+      if (timerCard) {
+        timerCard.style.opacity = autoEnabled ? '1' : '0.5';
+        timerCard.style.pointerEvents = autoEnabled ? 'auto' : 'none';
+      }
 
-      // Update tab metrics and history lists
+      const minutes = safeData.hibernateAfterMinutes !== undefined ? safeData.hibernateAfterMinutes : 1;
+      timerSelect.value = minutes;
+
+      // Update calculations, history lists, ignore lists
       updateTabsStatistics(
         safeData.totalSavedRAM_MB || 0,
         safeData.sessionSavedRAM_MB || 0,
-        safeData.sessionHibernatedCount || 0
+        safeData.sessionHibernatedCount || 0,
+        safeData.hibernationHistory || []
       );
       renderHistory(safeData.hibernationHistory || []);
       renderIgnoreList(safeData.ignoreList || []);
+      updatePauseButton();
+      renderProtectedTabsList();
     });
   }
 
-  // --- 4. TAB STATISTICS & LIST RENDERING ---
-  function updateTabsStatistics(totalSavedRAM_MB, sessionSavedRAM_MB, sessionCount) {
-    chrome.tabs.query({}, (tabs) => {
-      if (chrome.runtime.lastError) {
-        console.error('[RAMGuard Perf] Error querying active/inactive tabs:', chrome.runtime.lastError);
+  // Render active shielded background tabs and their reasons
+  function renderProtectedTabsList() {
+    chrome.runtime.sendMessage({ command: 'get-active-protections' }, (response) => {
+      if (chrome.runtime.lastError || !response || !response.success) {
+        protectedListContainer.innerHTML = `
+          <div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 10px 0;">
+            No protected background tabs
+          </div>
+        `;
         return;
       }
+      
+      protectedListContainer.innerHTML = '';
+      if (!response.protections || response.protections.length === 0) {
+        protectedListContainer.innerHTML = `
+          <div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 10px 0;">
+            No protected background tabs
+          </div>
+        `;
+        return;
+      }
+      
+      const fragment = document.createDocumentFragment();
+      response.protections.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'list-item';
+        div.style.padding = '6px 8px';
+        
+        const faviconSrc = item.favIconUrl || '/icons/icon-16.png';
+        const displayDomain = getDisplayDomain(item.url);
+        
+        div.innerHTML = `
+          <div class="tab-info-wrap" style="flex: 1; min-width: 0;" title="${escapeHTML(item.url || 'No URL')}">
+            <img class="tab-favicon" src="${faviconSrc}">
+            <div class="tab-text-details">
+              <span class="tab-title-text" style="font-size: 11px;">${escapeHTML(item.title || 'Untitled Tab')}</span>
+              <span class="tab-meta-text" style="font-size: 9px;">${escapeHTML(displayDomain)}</span>
+            </div>
+          </div>
+          <span class="wake-btn" style="background-color: var(--color-primary-glow); color: var(--color-primary); font-size: 9px; padding: 2px 6px; border-radius: 4px; font-weight: 600; pointer-events: none; border: none;">
+            ${escapeHTML(item.reason)}
+          </span>
+        `;
+        
+        const img = div.querySelector('.tab-favicon');
+        img.addEventListener('error', () => {
+          img.src = '/icons/icon-16.png';
+        }, { once: true });
+        
+        fragment.appendChild(div);
+      });
+      protectedListContainer.appendChild(fragment);
+    });
+  }
+
+  // Fast domain extraction
+  function getDisplayDomain(url) {
+    if (!url) return '';
+    try {
+      let hostname = new URL(url).hostname;
+      if (hostname.startsWith('www.')) {
+        hostname = hostname.substring(4);
+      }
+      return hostname;
+    } catch (e) {
+      return '';
+    }
+  }
+
+  // Estimate Tab memory size
+  function estimateTabRAM(url) {
+    if (!url) return 100;
+    const domain = getDisplayDomain(url);
+    if (domain.includes('youtube.com') || domain.includes('netflix.com') || domain.includes('twitch.tv')) {
+      return 350;
+    }
+    if (domain.includes('google.com/document') || domain.includes('sheets') || domain.includes('docs.google')) {
+      return 250;
+    }
+    if (domain.includes('facebook.com') || domain.includes('twitter.com') || domain.includes('reddit.com')) {
+      return 200;
+    }
+    if (domain.includes('github.com') || domain.includes('chatgpt.com')) {
+      return 150;
+    }
+    return 90; // default safe baseline
+  }
+
+  // Update metrics and render currently sleeping tabs list
+  function updateTabsStatistics(totalSavedRAM_MB, sessionSavedRAM_MB, sessionCount, history) {
+    chrome.tabs.query({}, (tabs) => {
+      if (chrome.runtime.lastError) return;
+      
       const activeCount = tabs.filter(t => !t.discarded).length;
       const sleepingTabs = tabs.filter(t => t.discarded);
       const sleepingCount = sleepingTabs.length;
+
+      // Compute estimated RAM savings live from the actual state
+      let currentSleepingSavedRAM = 0;
+      sleepingTabs.forEach(t => {
+        currentSleepingSavedRAM += estimateTabRAM(t.url);
+      });
+
+      const displaySessionSaved = Math.max(sessionSavedRAM_MB, currentSleepingSavedRAM);
+      const displayTotalSaved = Math.max(totalSavedRAM_MB, currentSleepingSavedRAM);
+      const displaySessionCount = Math.max(sessionCount, sleepingCount);
 
       // Render counts
       activeTabsCountEl.textContent = activeCount;
       sleepingTabsCountEl.textContent = sleepingCount;
 
-      // Format RAM saved display
       function formatRAM(mb) {
         if (mb >= 1024) {
           return `${(mb / 1024).toFixed(1)} GB`;
@@ -257,25 +277,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return `${mb} MB`;
       }
 
-      // Show RAM Saved
       if (sessionSavedRAMEl) {
-        sessionSavedRAMEl.textContent = formatRAM(sessionSavedRAM_MB);
+        sessionSavedRAMEl.textContent = formatRAM(displaySessionSaved);
       }
       if (totalSavedRAMEl) {
-        totalSavedRAMEl.textContent = `Total: ${formatRAM(totalSavedRAM_MB)}`;
+        totalSavedRAMEl.textContent = `Total: ${formatRAM(displayTotalSaved)}`;
       }
-
-      // Today's Session Summary Box
       if (sessionTabsCountEl) {
-        sessionTabsCountEl.textContent = `${sessionCount} tab${sessionCount === 1 ? '' : 's'} hibernated`;
+        sessionTabsCountEl.textContent = `${displaySessionCount} tab${displaySessionCount === 1 ? '' : 's'} hibernated`;
       }
       if (sessionRAMSavedTodayEl) {
-        sessionRAMSavedTodayEl.textContent = `${formatRAM(sessionSavedRAM_MB)} RAM saved`;
+        sessionRAMSavedTodayEl.textContent = `${formatRAM(displaySessionSaved)} RAM saved`;
       }
 
-      // Render sleeping tab list items
+      // Render Sleeping tabs list
       sleepingTabsList.innerHTML = '';
-
       if (sleepingCount === 0) {
         sleepingTabsList.innerHTML = `
           <div class="empty-state">
@@ -286,41 +302,59 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const fragment = document.createDocumentFragment();
-
       sleepingTabs.forEach(tab => {
         const item = document.createElement('div');
         item.className = 'list-item';
 
         const faviconSrc = tab.favIconUrl || '/icons/icon-16.png';
+        const domain = getDisplayDomain(tab.url);
+        
+        // Find sleeping start time from history
+        const match = history.find(h => h.url === tab.url || (tab.url && h.url.includes(tab.url)) || h.title === tab.title);
+        let timeSleptStr = 'recently';
+        if (match && match.timestamp) {
+          const elapsedMs = Date.now() - match.timestamp;
+          const mins = Math.floor(elapsedMs / 60000);
+          if (mins < 1) {
+            timeSleptStr = 'just now';
+          } else if (mins < 60) {
+            timeSleptStr = `${mins}m ago`;
+          } else {
+            const hrs = Math.floor(mins / 60);
+            timeSleptStr = `${hrs}h ago`;
+          }
+        }
+
+        const savedRAM = estimateTabRAM(tab.url);
 
         item.innerHTML = `
           <div class="tab-info-wrap" title="Click to wake up and focus this tab">
             <img class="tab-favicon" src="${faviconSrc}">
             <div class="tab-text-details">
               <span class="tab-title-text">${escapeHTML(tab.title || 'Untitled Tab')}</span>
+              <span class="tab-meta-text">${escapeHTML(domain)} • Slept ${timeSleptStr} • ${savedRAM} MB saved</span>
             </div>
           </div>
           <button class="wake-btn" title="Wake up tab">Wake</button>
         `;
 
-        // Handle image loading error safely (using once: true to prevent event listener leakage)
         const img = item.querySelector('.tab-favicon');
         img.addEventListener('error', () => {
           img.src = '/icons/icon-16.png';
         }, { once: true });
 
-        // Click to focus and wake tab
+        // Click to focus and wake
         item.querySelector('.tab-info-wrap').addEventListener('click', () => {
           chrome.tabs.update(tab.id, { active: true }, () => {
-            if (chrome.runtime.lastError) console.warn('[RAMGuard Perf] Error focusing tab:', chrome.runtime.lastError);
+            if (chrome.runtime.lastError) console.warn('[RAMGuard] Error focusing tab:', chrome.runtime.lastError);
           });
           chrome.windows.update(tab.windowId, { focused: true }, () => {
-            if (chrome.runtime.lastError) console.warn('[RAMGuard Perf] Error focusing window:', chrome.runtime.lastError);
+            if (chrome.runtime.lastError) console.warn('[RAMGuard] Error focusing window:', chrome.runtime.lastError);
           });
           window.close();
         });
 
-        // Click to wake in background
+        // Wake in background
         item.querySelector('.wake-btn').addEventListener('click', (e) => {
           e.stopPropagation();
           chrome.tabs.reload(tab.id, {}, () => {
@@ -328,14 +362,13 @@ document.addEventListener('DOMContentLoaded', () => {
               showToast('Failed to reload tab', 'error');
             } else {
               showToast('Tab woke up successfully', 'success');
-              refreshData();
+              triggerRefresh();
             }
           });
         });
 
         fragment.appendChild(item);
       });
-
       sleepingTabsList.appendChild(fragment);
     });
   }
@@ -343,7 +376,6 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- 5. RENDER HISTORY LIST ---
   function renderHistory(history) {
     historyTabsList.innerHTML = '';
-    
     if (!history || history.length === 0) {
       historyTabsList.innerHTML = `
         <div class="empty-state">
@@ -354,7 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const fragment = document.createDocumentFragment();
-
     history.forEach(item => {
       const div = document.createElement('div');
       div.className = 'list-item';
@@ -362,18 +393,18 @@ document.addEventListener('DOMContentLoaded', () => {
       const timeStr = formatTime(item.timestamp);
       const faviconSrc = item.favIconUrl || '/icons/icon-16.png';
       const estimatedSaved = item.estimatedSavedMB ? ` (${item.estimatedSavedMB} MB saved)` : '';
+      const displayDomain = getDisplayDomain(item.url);
 
       div.innerHTML = `
-        <div class="tab-info-wrap" title="${escapeHTML(item.url || 'No URL')}${estimatedSaved}">
+        <div class="tab-info-wrap" title="${escapeHTML(item.url || '')}${estimatedSaved}">
           <img class="tab-favicon" src="${faviconSrc}">
           <div class="tab-text-details">
             <span class="tab-title-text">${escapeHTML(item.title || 'Untitled Tab')}</span>
-            <span class="tab-meta-text">${timeStr}${estimatedSaved}</span>
+            <span class="tab-meta-text">${timeStr} • ${escapeHTML(displayDomain)}${estimatedSaved}</span>
           </div>
         </div>
       `;
 
-      // Handle fallback icon on error safely
       const img = div.querySelector('.tab-favicon');
       img.addEventListener('error', () => {
         img.src = '/icons/icon-16.png';
@@ -381,7 +412,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
       fragment.appendChild(div);
     });
-
     historyTabsList.appendChild(fragment);
   }
 
@@ -399,7 +429,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (list.length === 0) {
       ignoreListContainer.innerHTML = `
-        <div style="font-size: 12px; color: var(--text-muted); text-align: center; padding: 10px 0;">
+        <div style="font-size: 11px; color: var(--text-muted); text-align: center; padding: 10px 0;">
           No ignored sites yet
         </div>
       `;
@@ -407,27 +437,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const fragment = document.createDocumentFragment();
-
     list.forEach(domain => {
       const item = document.createElement('div');
       item.className = 'list-item';
-      item.style.padding = '8px 0';
+      item.style.padding = '4px 6px';
       
       const domainSpan = document.createElement('span');
-      domainSpan.style.fontSize = '13px';
+      domainSpan.style.fontSize = '12px';
       domainSpan.style.color = 'var(--text-primary)';
       domainSpan.style.wordBreak = 'break-all';
-      domainSpan.style.fontWeight = '400';
       domainSpan.textContent = domain;
 
       const removeBtn = document.createElement('button');
       removeBtn.className = 'wake-btn remove-ignore-btn';
-      removeBtn.style.padding = '4px 12px';
-      removeBtn.style.fontSize = '11px';
-      removeBtn.style.borderRadius = '100px';
+      removeBtn.style.padding = '2px 8px';
+      removeBtn.style.fontSize = '9px';
       removeBtn.textContent = 'Remove';
       
-      // Remove domain handler
       removeBtn.addEventListener('click', () => {
         chrome.storage.local.get(['ignoreList'], (data) => {
           const currentList = data.ignoreList || [];
@@ -437,7 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
               showToast('Failed to remove site', 'error');
             } else {
               showToast('Site removed', 'success');
-              refreshData();
+              triggerRefresh();
             }
           });
         });
@@ -447,11 +473,10 @@ document.addEventListener('DOMContentLoaded', () => {
       item.appendChild(removeBtn);
       fragment.appendChild(item);
     });
-
     ignoreListContainer.appendChild(fragment);
   }
 
-  // Add Domain to Ignore List
+  // Add Ignore Action
   addIgnoreBtn.addEventListener('click', () => {
     const rawVal = newIgnoreInput.value.trim().toLowerCase();
     if (!rawVal) return;
@@ -463,11 +488,8 @@ document.addEventListener('DOMContentLoaded', () => {
       } else if (domain.includes('/')) {
         domain = domain.split('/')[0];
       }
-    } catch (e) {
-      // Keep domain if URL parsing fails
-    }
+    } catch (e) {}
     
-    // Strip leading www. if present
     if (domain.startsWith('www.')) {
       domain = domain.substring(4);
     }
@@ -490,24 +512,107 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast('Failed to add site', 'error');
         } else {
           newIgnoreInput.value = '';
-          closeDropdown(); // Close suggestion box
+          closeDropdown();
           showToast('Site added to ignore list', 'success');
-          refreshData();
+          triggerRefresh();
         }
       });
     });
   });
 
-  // Autocomplete event listeners on the search input
+  // Autocomplete functionality
+  function isFuzzyMatch(query, target) {
+    query = query.toLowerCase();
+    target = target.toLowerCase();
+    if (target.includes(query)) return true;
+    let qIdx = 0;
+    for (let tIdx = 0; tIdx < target.length; tIdx++) {
+      if (target[tIdx] === query[qIdx]) qIdx++;
+      if (qIdx === query.length) return true;
+    }
+    return false;
+  }
+
+  function closeDropdown() {
+    autocompleteDropdown.style.display = 'none';
+    autocompleteDropdown.innerHTML = '';
+    activeSuggestionIndex = -1;
+    currentSuggestions = [];
+  }
+
+  function showSuggestions(query) {
+    chrome.storage.local.get(['ignoreList'], (data) => {
+      const ignoreList = data.ignoreList || [];
+      const filteredDefaults = SUGGESTED_DOMAINS.filter(d => !ignoreList.includes(d));
+      
+      if (!query || query.length < 1) {
+        currentSuggestions = filteredDefaults;
+      } else {
+        currentSuggestions = filteredDefaults.filter(d => isFuzzyMatch(query, d));
+      }
+
+      if (currentSuggestions.length === 0) {
+        closeDropdown();
+        return;
+      }
+
+      autocompleteDropdown.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+
+      if (!query || query.length < 1) {
+        const header = document.createElement('div');
+        header.className = 'autocomplete-header';
+        header.textContent = 'POPULAR SUGGESTIONS';
+        fragment.appendChild(header);
+      }
+
+      currentSuggestions.forEach((domain, index) => {
+        const item = document.createElement('div');
+        item.className = 'autocomplete-item';
+        item.textContent = domain;
+        item.dataset.index = index;
+
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          newIgnoreInput.value = domain;
+          addIgnoreBtn.click();
+          closeDropdown();
+        });
+
+        item.addEventListener('mousemove', () => {
+          setActiveSuggestion(index);
+        });
+
+        fragment.appendChild(item);
+      });
+
+      autocompleteDropdown.appendChild(fragment);
+      autocompleteDropdown.style.display = 'block';
+      activeSuggestionIndex = -1;
+    });
+  }
+
+  function setActiveSuggestion(index) {
+    const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
+    items.forEach(item => item.classList.remove('active'));
+    activeSuggestionIndex = index;
+    if (index >= 0 && index < items.length) {
+      items[index].classList.add('active');
+      items[index].scrollIntoView({ block: 'nearest' });
+    }
+  }
+
   newIgnoreInput.addEventListener('input', () => {
-    const query = newIgnoreInput.value.trim().toLowerCase();
-    showSuggestions(query);
+    showSuggestions(newIgnoreInput.value.trim().toLowerCase());
+  });
+
+  newIgnoreInput.addEventListener('focus', () => {
+    showSuggestions(newIgnoreInput.value.trim().toLowerCase());
   });
 
   newIgnoreInput.addEventListener('keydown', (e) => {
     if (autocompleteDropdown.style.display === 'block') {
       const items = autocompleteDropdown.querySelectorAll('.autocomplete-item');
-      
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         let nextIndex = activeSuggestionIndex + 1;
@@ -537,43 +642,106 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Close suggestions with slight delay when input loses focus (lets click events complete)
-  newIgnoreInput.addEventListener('blur', () => {
-    setTimeout(closeDropdown, 200);
+  document.addEventListener('mousedown', (e) => {
+    if (!newIgnoreInput.contains(e.target) && !autocompleteDropdown.contains(e.target)) {
+      closeDropdown();
+    }
   });
 
-  // --- 7. ACTION HANDLERS ---
-  
-  // Real-time slider text representation updates on input (CPU friendly)
-  inactiveSlider.addEventListener('input', () => {
-    inactiveValue.textContent = `${inactiveSlider.value} min`;
-  });
-
-  // Write changes to storage ONLY when user releases the slider (avoids multiple concurrent writes)
-  inactiveSlider.addEventListener('change', () => {
-    const val = parseInt(inactiveSlider.value);
-    chrome.storage.local.set({ hibernateInactiveMinutes: val }, () => {
+  // --- 7. CONFIG & OVERRIDES EVENT LISTENERS ---
+  timerSelect.addEventListener('change', () => {
+    const val = parseFloat(timerSelect.value);
+    chrome.storage.local.set({ hibernateAfterMinutes: val }, () => {
       if (chrome.runtime.lastError) {
-        console.error('[RAMGuard Perf] Error saving timeout:', chrome.runtime.lastError);
+        console.error('[RAMGuard] Error saving timeout:', chrome.runtime.lastError);
       } else {
-        console.log(`[RAMGuard Perf] Inactivity timeout updated to ${val} min.`);
+        showToast('Hibernation timer updated', 'success');
+        triggerRefresh();
       }
     });
   });
 
-  // Manual Hibernation Action
+  autoHibernateToggle.addEventListener('change', () => {
+    const isChecked = autoHibernateToggle.checked;
+    chrome.storage.local.set({ autoHibernateEnabled: isChecked }, () => {
+      if (timerCard) {
+        timerCard.style.opacity = isChecked ? '1' : '0.5';
+        timerCard.style.pointerEvents = isChecked ? 'auto' : 'none';
+      }
+      showToast(isChecked ? 'Auto-hibernate enabled' : 'Auto-hibernate disabled', 'success');
+      triggerRefresh();
+    });
+  });
+
+  let pauseCountdownInterval = null;
+  function updatePauseButton() {
+    chrome.storage.local.get(['pausedUntil'], (data) => {
+      const pausedUntil = data.pausedUntil || 0;
+      const now = Date.now();
+      
+      if (pausedUntil > now) {
+        pauseToggle.checked = true;
+        if (pauseCountdownInterval) clearInterval(pauseCountdownInterval);
+        
+        const tick = () => {
+          const timeLeft = pausedUntil - Date.now();
+          if (timeLeft <= 0) {
+            clearInterval(pauseCountdownInterval);
+            chrome.storage.local.set({ pausedUntil: 0 }, () => {
+              updatePauseButton();
+              triggerRefresh();
+            });
+          } else {
+            const minutes = Math.floor(timeLeft / 60000);
+            const seconds = Math.floor((timeLeft % 60000) / 1000);
+            const timeStr = `${minutes}:${String(seconds).padStart(2, '0')}`;
+            pauseTitle.textContent = `Hibernation Paused`;
+            pauseSubTitle.textContent = `Resuming in ${timeStr}...`;
+          }
+        };
+        tick();
+        pauseCountdownInterval = setInterval(tick, 1000);
+      } else {
+        if (pauseCountdownInterval) {
+          clearInterval(pauseCountdownInterval);
+          pauseCountdownInterval = null;
+        }
+        pauseToggle.checked = false;
+        pauseTitle.textContent = 'Pause Hibernation';
+        pauseSubTitle.textContent = 'Temporarily pause all hibernation';
+      }
+    });
+  }
+
+  pauseToggle.addEventListener('change', () => {
+    if (pauseToggle.checked) {
+      const targetTime = Date.now() + 30 * 60 * 1000;
+      chrome.storage.local.set({ pausedUntil: targetTime }, () => {
+        updatePauseButton();
+        showToast('Hibernation paused for 30 mins', 'success');
+        triggerRefresh();
+      });
+    } else {
+      chrome.storage.local.set({ pausedUntil: 0 }, () => {
+        updatePauseButton();
+        showToast('Hibernation resumed', 'success');
+        triggerRefresh();
+      });
+    }
+  });
+
+  // Action Buttons
   hibernateNowBtn.addEventListener('click', () => {
     hibernateNowBtn.setAttribute('disabled', 'true');
     const originalText = hibernateNowBtn.textContent;
-    hibernateNowBtn.textContent = 'Hibernating...';
+    hibernateNowBtn.textContent = 'Sleeping...';
 
     chrome.runtime.sendMessage({ command: 'hibernate-now' }, (response) => {
       hibernateNowBtn.removeAttribute('disabled');
       hibernateNowBtn.textContent = originalText;
 
       if (chrome.runtime.lastError) {
-        console.error('[RAMGuard Perf] Error communicating with background worker:', chrome.runtime.lastError);
-        showToast('Service worker connection failed', 'error');
+        showToast('Background worker failed to respond', 'error');
         return;
       }
 
@@ -583,80 +751,104 @@ document.addEventListener('DOMContentLoaded', () => {
         if (count > 0) {
           showToast(`Hibernated ${count} tab${count === 1 ? '' : 's'} • ${savedRAM} MB saved`, 'success');
         } else {
-          showToast('No background tabs needed hibernation', 'info');
+          showToast('All tabs are already optimized', 'info');
         }
-        refreshData();
+        triggerRefresh();
       } else {
-        showToast('Hibernation action finished with errors', 'error');
-        refreshData();
+        showToast('Error executing hibernation', 'error');
       }
     });
   });
 
-  // Wake All Global Action
-  wakeAllBtn.addEventListener('click', () => {
-    chrome.runtime.sendMessage({ command: 'wake-all' }, (response) => {
+  hibernateOtherBtn.addEventListener('click', () => {
+    hibernateOtherBtn.setAttribute('disabled', 'true');
+    const originalText = hibernateOtherBtn.textContent;
+    hibernateOtherBtn.textContent = 'Sleeping...';
+
+    chrome.runtime.sendMessage({ command: 'hibernate-other-tabs' }, (response) => {
+      hibernateOtherBtn.removeAttribute('disabled');
+      hibernateOtherBtn.textContent = originalText;
+
       if (chrome.runtime.lastError) {
-        console.error('[RAMGuard Perf] Error sending wake-all command:', chrome.runtime.lastError);
-        showToast('Action failed', 'error');
+        showToast('Background worker failed to respond', 'error');
         return;
       }
+
       if (response && response.success) {
         const count = response.count || 0;
-        showToast(`Woke up ${count} tab${count === 1 ? '' : 's'} globally`, 'success');
-        refreshData();
+        const savedRAM = response.savedRAM || 0;
+        if (count > 0) {
+          showToast(`Hibernated ${count} tab${count === 1 ? '' : 's'} in other windows • ${savedRAM} MB saved`, 'success');
+        } else {
+          showToast('No other background tabs to hibernate', 'info');
+        }
+        triggerRefresh();
+      } else {
+        showToast('Error executing hibernation', 'error');
       }
     });
   });
 
-  // Wake All in Current Window Action
+  wakeAllBtn.addEventListener('click', () => {
+    chrome.runtime.sendMessage({ command: 'wake-all' }, (response) => {
+      if (chrome.runtime.lastError || !response || !response.success) {
+        showToast('Failed to wake tabs', 'error');
+        return;
+      }
+      showToast(`Woke up ${response.count || 0} tabs globally`, 'success');
+      triggerRefresh();
+    });
+  });
+
   wakeWindowBtn.addEventListener('click', () => {
     chrome.windows.getCurrent({ populate: false }, (win) => {
-      if (chrome.runtime.lastError) {
-        console.error('[RAMGuard Perf] Error getting current window:', chrome.runtime.lastError);
-        showToast('Action failed', 'error');
+      if (chrome.runtime.lastError || !win) {
+        showToast('Failed to identify window', 'error');
         return;
       }
       chrome.runtime.sendMessage({ command: 'wake-all', windowId: win.id }, (response) => {
-        if (chrome.runtime.lastError) {
-          console.error('[RAMGuard Perf] Error sending wake-all command:', chrome.runtime.lastError);
-          showToast('Action failed', 'error');
+        if (chrome.runtime.lastError || !response || !response.success) {
+          showToast('Failed to wake tabs', 'error');
           return;
         }
-        if (response && response.success) {
-          const count = response.count || 0;
-          showToast(`Woke up ${count} tab${count === 1 ? '' : 's'} in this window`, 'success');
-          refreshData();
-        }
+        showToast(`Woke up ${response.count || 0} tabs in this window`, 'success');
+        triggerRefresh();
       });
     });
   });
 
-  // Clear History Log Action
   clearHistoryBtn.addEventListener('click', () => {
     chrome.storage.local.set({ hibernationHistory: [] }, () => {
       if (chrome.runtime.lastError) {
-        console.error('[RAMGuard Perf] Error clearing history log:', chrome.runtime.lastError);
-        showToast('Failed to clear log', 'error');
+        showToast('Failed to clear history log', 'error');
       } else {
-        showToast('History log cleared', 'success');
-        refreshData();
+        showToast('History log cleared successfully', 'success');
+        triggerRefresh();
       }
     });
   });
 
-  // --- 8. UI TOAST HELPERS ---
+  // --- 8. LIVE REFRESH STORAGE & TAB LISTENERS ---
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local') {
+      triggerRefresh();
+    }
+  });
+
+  chrome.tabs.onUpdated.addListener(() => triggerRefresh());
+  chrome.tabs.onRemoved.addListener(() => triggerRefresh());
+  chrome.tabs.onCreated.addListener(() => triggerRefresh());
+
+  // Toast Helper
   let toastTimeout;
   function showToast(message, type = 'info') {
     toastText.textContent = message;
-    
     toast.className = 'toast show';
     if (type === 'success') {
       toast.classList.add('toast-success');
     } else if (type === 'error') {
       toast.classList.add('toast-error');
     }
-
     clearTimeout(toastTimeout);
     toastTimeout = setTimeout(() => {
       toast.classList.remove('show');
@@ -676,6 +868,6 @@ document.addEventListener('DOMContentLoaded', () => {
     );
   }
 
-  // Load state on startup
+  // Initial Load
   refreshData();
 });

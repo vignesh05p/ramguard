@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "RAMGuard",
-  "version": "1.6.3",
+  "version": "1.8.0",
   "description": "RAMGuard automatically hibernates inactive tabs after 1 minute — keeps Chrome, Brave, Edge, Opera, Vivaldi fast. 100% free.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -19,7 +19,21 @@
     "tabs",
     "storage",
     "alarms",
-    "idle"
+    "idle",
+    "notifications"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["main-world.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    }
   ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self';"
@@ -31,7 +45,14 @@
         "mac": "Command+Shift+H"
       },
       "description": "Hibernate Now (free up RAM instantly)"
+    },
+    "hibernate-other-tabs": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+O",
+        "mac": "Command+Shift+O"
+      },
+      "description": "Hibernate All Other Tabs (except current window)"
     }
   },
-  "minimum_chrome_version": "102"
+  "minimum_chrome_version": "111"
 }
